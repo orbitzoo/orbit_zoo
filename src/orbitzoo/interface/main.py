@@ -36,7 +36,8 @@ class Interface:
 
         self.params = params
         self.bodies = bodies
-        # self.initial_epoch = initial_epoch or AbsoluteDate()
+
+        # set current date and time in UTC if not provided
         if initial_epoch:
             self.initial_epoch = AbsoluteDate(
                 int(initial_epoch["year"]),
@@ -47,7 +48,6 @@ class Interface:
                 float(initial_epoch["second"]),
                 TimeScalesFactory.getUTC())
         else:
-            # current date and time in UTC
             self.initial_epoch = AbsoluteDate()
 
         default_params = {
@@ -82,6 +82,11 @@ class Interface:
                 "color_velocity": (0, 255, 255),
                 "color_trail": (255, 255, 255),
                 "color_thrust": (0, 255, 0),
+            },
+            "communication": {
+                "show": False,
+                "distance": 100_000.0,
+                "color": (255, 0, 0)
             }
         }
 
@@ -110,7 +115,6 @@ class Interface:
         if self.params["earth"]["show"]:
             # self.earth = Earth(resolution = self.params["earth"]["resolution"], position=(0,0,0), color=self.params["earth"]["color"], scale=scale)
             self.earth = EarthSurface(n_points = 10000, position=(0,0,0), color=self.params["earth"]["color"], scale=scale)
-            # self.earth = EarthContinents(position=(0,0,0), color=self.params["earth"]["color"], scale=scale)
         if self.params["equator_grid"]["show"]:
             self.grid = Grid(color=self.params["equator_grid"]["color"], dimensions=(6*int(scale), 6*int(scale)), dot_precision=self.params["equator_grid"]["resolution"])
         if "orbits" in params:
@@ -173,17 +177,35 @@ class Interface:
         for body in bodies:
             scaled_pos = body.position * self.distance_scale
             x, y, z = scaled_pos
-            # if "body" in self.params and body.name in self.params["body"] and "color_body" in self.params["body"][body.name]:
-            #     body_color = self.params["body"][body.name]["color_body"]
-            # else:
-            #     body_color = self.params["bodies"]["color_body"]
-            if type == 'debris':
-                body_color = (255, 0, 0)
+            if "body" in self.params and body.name in self.params["body"] and "color_body" in self.params["body"][body.name]:
+                body_color = self.params["body"][body.name]["color_body"]
             else:
-                body_color = (0, 0, 0)
+                body_color = self.params["bodies"]["color_body"]
+            # if type == 'debris':
+            #     body_color = (255, 0, 0)
+            # else:
+            #     body_color = (0, 0, 0)
             # self.spheres.append(CircleChain(resolution= 1, position=(x, z, y), color=body_color, scale=scale/300))
             self.spheres.append(Point(resolution=1, position=(x, z, y), color=body_color, scale=self.scale/300))
             self.bodies.append(body)
+
+    @staticmethod
+    def should_draw_connection(body1: Body, body2: Body, params: dict = None) -> bool:
+        if not params or not params.get("show", False):
+            return False
+
+        distance = float(params.get("distance", 0.0))
+        if distance <= 0:
+            return False
+        if not Body.has_visibility(body1, body2):
+            return False
+
+        return bool(Body.get_distance(body1, body2) <= distance)
+
+    def _project_to_screen(self, x, y, z, sphere, vp):
+        data = Matrix([[x * 1 / 40, y * 1 / 40, z * 1 / 40, 1]])
+        points = data @ sphere.matrix @ vp
+        return sphere._perspective_divide(points=points)[0][:2]
 
     def reset(self):
         self.initial_timestamp = self.initial_epoch.getDate().toString().rpartition('.')[0].replace('T', ' ')
@@ -288,6 +310,7 @@ class Interface:
             #positions2 = positions
             # positions2[:, [1, 2]] = positions2[:, [2, 1]]
 
+            visible_bodies = []
             counter = 1
             for i, body in enumerate(self.bodies):
 
@@ -358,9 +381,7 @@ class Interface:
                     color_label = self.params["body"][body.name]["color_label"] if "body" in self.params and body.name in self.params["body"] and "color_label" in self.params["body"][body.name] else self.params["bodies"]["color_label"]
                     
                     # Use a scaled position matrix multiply only once
-                    data = Matrix([[x*1/40, y*1/40, z*1/40, 1]])
-                    points = data @ sphere.matrix @ VP
-                    center = sphere._perspective_divide(points=points)[0][:2]
+                    center = self._project_to_screen(x, y, z, sphere, VP)
 
                     # Cache label text per body name to avoid re-rendering every frame
                     if not hasattr(body, '_cached_label') or body._cached_label_text != body.name:
@@ -374,7 +395,22 @@ class Interface:
                     if save_points:
                         projected_points[f'body_{counter}']['name'] = body.name
 
+                visible_bodies.append({
+                    "body": body,
+                    "sphere": sphere,
+                    "position": (x, y, z),
+                })
                 counter += 1
+
+            # show connections between visible bodies if enabled
+            if self.params["communication"].get("show", False):
+                for i, body_data in enumerate(visible_bodies):
+                    for other_body_data in visible_bodies[i + 1:]:
+                        should_draw = self.should_draw_connection(body_data["body"], other_body_data["body"], self.params["communication"])
+                        if should_draw:
+                            start = self._project_to_screen(*body_data["position"], body_data["sphere"], VP)
+                            end = self._project_to_screen(*other_body_data["position"], other_body_data["sphere"], VP)
+                            pygame.draw.line(self.screen, self.params["communication"]["color"], start, end, 1)
 
             # Blit timestamp labels
             if self.params["timestamp"]["show"]:
@@ -432,7 +468,6 @@ class Interface:
 
             plt.savefig(save_path, format='pdf', bbox_inches='tight', pad_inches=0)
             plt.close()
-
 
 
     def frame_old(self, epoch: AbsoluteDate):

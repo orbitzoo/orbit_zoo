@@ -91,10 +91,7 @@ class OrekitDynamics(Dynamics):
             if third_body_force in shared_forces:
                 shared_forces_instances[third_body_force] = ThirdBodyForce(third_body_force)
 
-        for i, body_params in enumerate(drifters_params):
-
-            body = self.drifters[i]
-
+        def _apply_force_models(body, body_params):
             force_instances = []
             body_forces = body_params['forces'] if 'forces' in body_params else ['gravity_newton']
             # GRAVITY MODEL
@@ -109,7 +106,7 @@ class OrekitDynamics(Dynamics):
                 force_instances.append(shared_forces_instances['gravity_lt'])
             elif 'gravity_hf' in body_forces:
                 force_instances.append(shared_forces_instances['gravity_hf'])
-            
+
             # THIRD BODY FORCES
             for third_body_force in third_body_forces:
                 if third_body_force in body_forces:
@@ -125,6 +122,12 @@ class OrekitDynamics(Dynamics):
 
             body.forces = force_instances
 
+        for body, body_params in zip(self.drifters, drifters_params):
+            _apply_force_models(body, body_params)
+
+        for body, body_params in zip(self.spacecrafts, spacecrafts_params):
+            _apply_force_models(body, body_params)
+
     def reset(self, seed: float = None):
         super().reset(seed)
         if self.is_parallel_propagation:
@@ -137,6 +140,7 @@ class OrekitDynamics(Dynamics):
 
         if not actions:
             actions = {}
+
         for spacecraft in self.spacecrafts:
             spacecraft_name = spacecraft.name
             # apply no thrust for spacecrafts that have not been mentioned in 'actions'
@@ -159,14 +163,26 @@ class OrekitDynamics(Dynamics):
                 vel = bodies[i].current_state.getPVCoordinates().getVelocity()
                 bodies[i].position = np.array([pos.getX(), pos.getY(), pos.getZ()])
                 bodies[i].velocity = np.array([vel.getX(), vel.getY(), vel.getZ()])
+                if bodies[i].get_altitude() < EARTH_RADIUS:
+                    if bodies[i].name is not None:
+                        raise Exception(f"{bodies[i].name} has crashed!")
+                    else:
+                        raise Exception(f"A drifter has crashed!")
         else:
             # propagate drifters
             self.current_epoch = self.current_epoch.shiftedBy(step_size)
             for body in self.drifters:
                 body.step(step_size)
+                if body.get_altitude() < EARTH_RADIUS:
+                    if body.name is not None:
+                        raise Exception(f"{body.name} has crashed!")
+                    else:
+                        raise Exception(f"A drifter has crashed!")
             # propagate spacecrafts
             for body in self.spacecrafts:
                 body.step(step_size, actions[body.name], step_size)
+                if body.get_altitude() < EARTH_RADIUS:
+                    raise Exception(f"{body.name} has crashed!")
 
 class OrekitBody(Body):
 

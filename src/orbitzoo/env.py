@@ -2,7 +2,6 @@ import warnings
 import numpy as np
 from pettingzoo import ParallelEnv
 import torch
-# from torch.utils.tensorboard import SummaryWriter
 from tensorboardX import SummaryWriter
 import optuna
 from collections.abc import Callable
@@ -85,7 +84,7 @@ class OrbitZoo(ParallelEnv):
                 drifters_params=drifters, 
                 spacecrafts_params=spacecrafts, 
                 ground_stations_params=ground_stations,
-                is_parallel_propagation=False
+                is_parallel_propagation=True
                 )
         elif dynamics_library == 'tensorgator':
             self.dynamics = TensorgatorDynamics(
@@ -508,13 +507,56 @@ def main():
             }
             ]
     spacecrafts = [{
-            'name': 'agent',
+            'name': 'sc_1',
             'initial_state': [12786485.356547935, 7361435.699122934, 440002.27957423026, -2645.248605885859, 4740.500870700536, 448.626521969306],
             },
+            {
+            'name': 'sc_2',
+            'initial_state': [12786485.356547935, 7361435.699122934, 440002.27957423026, 2645.248605885859, -4740.500870700536, -448.626521969306],
+            },
             ]
+    
+    interface_config = {
+            "zoom": 5.0,
+            "background": {
+                "color": (20, 20, 20),
+            },
+            "earth": {
+                "show": True,
+                "color": (0, 0, 255),
+                "resolution": 70,
+            },
+            "equator_grid": {
+                "show": False,
+                "color": (0, 204, 204),
+                "resolution": 10,
+            },
+            "timestamp": {
+                "show": True,
+                "size": 12,
+                "color": (255, 255, 255),
+            },
+            "bodies": {
+                "show": True,
+                "show_label": True,
+                "show_velocity": False,
+                "show_trail": True,
+                "show_thrust": True,
+                "trail_last_steps": 100,
+                "color_body": (255, 255, 255),
+                "color_label": (255, 255, 255),
+                "color_velocity": (0, 255, 255),
+                "color_trail": (255, 255, 255),
+                "color_thrust": (0, 255, 0),
+            },
+            "communication": {
+                "show": True,
+                "distance": 1_000_000.0,
+            }
+        }
 
     # env = OrbitZoo(dynamics_library='tensorgator', drifters=drifters_orekit)
-    env = OrbitZoo(spacecrafts=spacecrafts, render = True)
+    env = OrbitZoo(spacecrafts=spacecrafts, render = True, interface_config=interface_config)
 
     for _ in range(1000):
         env.step()
