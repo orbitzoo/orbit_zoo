@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+dist_test/
+
+# Virtual environments
+venv/
+venv_test/
+.venv/
+env/
+ENV/
+
+# Orekit data is bundled as a zip inside the package; ignore any unzipped copies
+**/orekit-data/
+
+# Training outputs
+trained_models/
+runs/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store

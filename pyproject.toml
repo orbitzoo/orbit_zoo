@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbitzoo"
+version = "0.1.2"
+description = "Orbital-dynamics simulation and multi-agent reinforcement learning environment (PettingZoo ParallelEnv) powered by Orekit."
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+# TODO: choose a license before publishing to PyPI (e.g. MIT). Add a LICENSE file
+# and uncomment the line below.
+# license = { file = "LICENSE" }
+authors = [
+    { name = "OrbitZoo" },
+]
+keywords = ["orbital-mechanics", "orekit", "reinforcement-learning", "marl", "pettingzoo", "astrodynamics"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    # Orekit (JPype build) + a pip-provided JVM
+    "orekit_jpype>=12.2,<13",
+    "jdk4py",
+    # Core simulation / RL
+    "numpy==1.24.4",
+    "pettingzoo==1.24.3",
+    "optuna",
+    "tensorboardX",
+    # Deep learning (CPU wheels from PyPI; see SETUP.md for CUDA)
+    "torch==2.4.1",
+    "torchvision",
+    "torchaudio",
+    # Dynamics (Tensorgator)
+    "scipy",
+    "numba",
+    # Interface / rendering
+    "pygame==2.6.0",
+    "play3d==0.1.5",
+    "trimesh",
+    "matplotlib",
+]
+
+[project.urls]
+Homepage = "https://github.com/orbitzoo/orbit_zoo"
+
+[project.scripts]
+orbitzoo-demo = "orbitzoo.env:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Bundle the Orekit data zip inside the wheel so `pip install orbitzoo` is
+# self-contained (loaded at runtime via a package-relative path in env.py).
+[tool.setuptools.package-data]
+"orbitzoo.dynamics.orekit" = ["orekit-data.zip"]
